@@ -1,5 +1,6 @@
 declare const classNames: {
-  readonly template: "template";
+  readonly templateItem: "templateItem";
+  readonly editor: "editor";
   readonly dataTable: "dataTable";
   readonly key: "key";
   readonly ref: "ref";

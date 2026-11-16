@@ -100,10 +100,11 @@ An extension that renders `Renderer.Component.MonacoEditor` compiles against
 `monaco-editor` without importing it, so it declares `monaco-editor` in
 `devDependencies` at the host's version as well. `MonacoEditorProps` takes its
 `options` and callback types from that package; without it they are `any`, and
-`skipLibCheck` hides the unresolved import. This extension renders no editor and
-does not declare it ("The host-provided libraries, and how to mark them
-external" in Freelens's `migrating-from-v1.md`, and contracts C3 and C11 of
-`api.md`).
+`skipLibCheck` hides the unresolved import. This extension renders the editor,
+read-only, for the templates of a `ValsSecret` and a `DbSecret`
+(`src/renderer/details/templates.tsx`), and declares it ("The host-provided
+libraries, and how to mark them external" in Freelens's `migrating-from-v1.md`,
+and contracts C3 and C11 of `api.md`).
 
 ## Common Commands
 

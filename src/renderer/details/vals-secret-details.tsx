@@ -4,7 +4,7 @@ import { Fragment } from "react";
 import { ValsSecret } from "../api/vals-secret/vals-secret-v1";
 import styles from "./details.module.scss";
 import { RolloutTargets } from "./rollout-targets";
-import { Templates } from "./templates";
+import { TemplateEditor, Templates } from "./templates";
 
 import type { Database, DataSource, Target, TargetStatus } from "../api/vals-secret/vals-secret-v1";
 
@@ -132,9 +132,10 @@ function TargetItems({ object, target }: { object: ValsSecret; target: Target | 
         labels={target.annotations ?? {}}
         hidden={!Object.keys(target.annotations ?? {}).length}
       />
-      <DrawerItem name="Template">
-        <pre className={styles.template}>{target.template}</pre>
-      </DrawerItem>
+      <div className={styles.templateItem}>
+        <div className="DrawerItem">Template</div>
+        <TemplateEditor template={target.template} />
+      </div>
     </>
   );
 }
