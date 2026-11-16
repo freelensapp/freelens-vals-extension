@@ -1,0 +1,39 @@
+.page {
+  :global(.TableCell) {
+    &.name {
+      flex-grow: 1.5;
+    }
+
+    &.secret {
+      flex-grow: 1.5;
+    }
+
+    &.target {
+      flex-grow: 0.7;
+    }
+
+    &.data {
+      flex-grow: 0.4;
+    }
+
+    &.ready {
+      flex-grow: 0.4;
+    }
+
+    &.vaultMount {
+      flex-grow: 1;
+    }
+
+    &.vaultRole {
+      flex-grow: 1;
+    }
+
+    &.renew {
+      flex-grow: 0.4;
+    }
+
+    &.age {
+      flex-grow: 0.3;
+    }
+  }
+}

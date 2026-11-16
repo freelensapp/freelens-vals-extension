@@ -1,0 +1,11 @@
+# Test objects of vals-operator, in a namespace of their own. They are not
+# reconciled without the operator: no Secret, ConfigMap, Deployment or
+# StatefulSet that they name is created, and no status is written.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: vals-example
+resources:
+- namespace.yaml
+- valssecret.yaml
+- valssecret-target.yaml
+- dbsecret.yaml

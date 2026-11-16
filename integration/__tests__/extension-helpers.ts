@@ -36,24 +36,24 @@ export const kindClusterName = process.env.TEST_KIND_CLUSTER_NAME || "kind";
 // The namespace of the test objects, created by the fixtures.
 const testNamespace = "integration-tests";
 
-// The CRD of every API version of the extension's kind.
-const crdName = "examples.example.freelens.app";
+// The CRDs of the extension's kinds, applied from examples/crds.
+const crdNames = ["valssecrets.digitalis.io", "dbsecrets.digitalis.io"];
 
 // The package name with `@` dropped and `/` turned into `--`
 // (`sanitizeExtensionName` in Freelens's `lens-extension.ts`).
 const sanitizedExtensionId = extensionName.replace("@", "").replace("/", "--");
 
-// The link inside the sidebar item of the extension's cluster page: the
-// `clusterPageMenus` id, after the sanitized package name. Only the link
-// navigates.
-const pageLinkTestId = `link-for-sidebar-item-${sanitizedExtensionId}-example`;
+/**
+ * The link inside the sidebar item of a `clusterPageMenus` entry: its id,
+ * after the sanitized package name. Only the link navigates.
+ */
+const sidebarLinkTestId = (id: string) => `link-for-sidebar-item-${sanitizedExtensionId}-${id}`;
 
-// The title and the input label of the extension's `appPreferences` entry.
-const preferencesTitle = "Example Preferences";
-const preferencesInputLabel = "Example checkbox";
+// The parent entry "Vals", which expands to the pages of the kinds.
+const parentLinkTestId = sidebarLinkTestId("vals");
 
-// The name of the test object in `examples/<version>/test`.
-const testObjectName = "test";
+/** The ids of the extension's cluster pages, and of their sidebar entries. */
+export type PageId = "vals-secrets" | "db-secrets";
 
 const viewTimeout = { timeout: 60 * 1000 };
 
@@ -494,24 +494,6 @@ export async function installExtension({ window }: AppSession, { reinstall = fal
 }
 
 /**
- * Opens the extension's tab in the "Extensions" tab group of the preferences,
- * and waits for the title and the input label of the extension's block. The
- * entry sets no `showInPreferencesTab`, so it is on the page of that tab
- * (`registrator-for-preference-items.injectable.tsx` in Freelens). It does not
- * change the preference.
- */
-export async function openExtensionPreferences({ window }: AppSession) {
-  await navigate(window, `/preferences/extension/${sanitizedExtensionId}`);
-
-  const page = window.locator(
-    `[data-preference-page-test="preference-item-for-extension-${sanitizedExtensionId}-page"]`,
-  );
-
-  await page.getByText(preferencesTitle, { exact: true }).waitFor(viewTimeout);
-  await page.getByText(preferencesInputLabel, { exact: true }).waitFor(viewTimeout);
-}
-
-/**
  * The catalog id of the kind cluster, looked up by its name.
  */
 async function kindClusterId(window: Page): Promise<string> {
@@ -628,6 +610,24 @@ async function clickSidebarItem(frame: Frame, testId: string) {
 }
 
 /**
+ * Opens one of the extension's pages from the sidebar. The pages are children
+ * of the entry "Vals", whose link expands it, and the app keeps it expanded, so
+ * it is clicked only when the page's entry is not shown.
+ */
+async function openPageFromSidebar(frame: Frame, pageId: PageId) {
+  const pageLink = frame.locator(`[data-testid="${sidebarLinkTestId(pageId)}"]`);
+
+  await frame.waitForSelector(`[data-testid="${parentLinkTestId}"]`, viewTimeout);
+
+  if (!(await pageLink.count())) {
+    await clickSidebarItem(frame, parentLinkTestId);
+  }
+
+  await pageLink.waitFor(viewTimeout);
+  await clickSidebarItem(frame, sidebarLinkTestId(pageId));
+}
+
+/**
  * Selects the namespace of the test objects in the namespace filter of the
  * extension's page, which its `KubeObjectListLayout` renders for a namespaced
  * resource. The selection holds for every namespaced list of the cluster, and
@@ -636,8 +636,7 @@ async function clickSidebarItem(frame: Frame, testId: string) {
  * own: the Pods page asks for pod metrics, and kind has no metrics server.
  */
 async function selectTestNamespace(frame: Frame) {
-  await frame.waitForSelector(`[data-testid="${pageLinkTestId}"]`, viewTimeout);
-  await clickSidebarItem(frame, pageLinkTestId);
+  await openPageFromSidebar(frame, "vals-secrets");
 
   const label = frame.locator(".NamespaceSelect").getByText(`Namespace: ${testNamespace}`, { exact: true });
   const namespaceSelect = await frame.waitForSelector(".NamespaceSelect", viewTimeout);
@@ -685,32 +684,26 @@ function kubectl(...args: string[]): string {
 }
 
 /**
- * Removes what an earlier run left, then applies the CRD of the API version
- * and, once it is established, the test objects.
+ * Removes what an earlier run left, then applies the CRDs and, once they are
+ * established, the test objects.
  */
-export function setUpCluster(version: string) {
+export function setUpCluster() {
   kubectl("delete", "namespace", testNamespace, "--ignore-not-found", "--wait");
-  kubectl("delete", "crd", crdName, "--ignore-not-found", "--wait");
+  kubectl("delete", "crd", ...crdNames, "--ignore-not-found", "--wait");
 
-  kubectl("apply", "-k", path.join(extensionDir, "examples", version, "crds"));
-  kubectl("wait", "--for=condition=Established", `crd/${crdName}`, "--timeout=120s");
-  kubectl("apply", "-k", path.join(extensionDir, "integration", "fixtures", version));
+  kubectl("apply", "-k", path.join(extensionDir, "examples", "crds"));
+  kubectl("wait", "--for=condition=Established", ...crdNames.map((name) => `crd/${name}`), "--timeout=120s");
+  kubectl("apply", "-k", path.join(extensionDir, "integration", "fixtures"));
 }
 
 /**
- * Deletes the test objects and the CRD of the API version.
+ * Deletes the test objects and the CRDs.
  */
-export function tearDownCluster(version: string) {
+export function tearDownCluster() {
   try {
-    kubectl(
-      "delete",
-      "-k",
-      path.join(extensionDir, "integration", "fixtures", version),
-      "--ignore-not-found",
-      "--wait",
-    );
+    kubectl("delete", "-k", path.join(extensionDir, "integration", "fixtures"), "--ignore-not-found", "--wait");
   } finally {
-    kubectl("delete", "-k", path.join(extensionDir, "examples", version, "crds"), "--ignore-not-found", "--wait");
+    kubectl("delete", "-k", path.join(extensionDir, "examples", "crds"), "--ignore-not-found", "--wait");
   }
 }
 
@@ -727,38 +720,46 @@ async function closeDetails(frame: Frame) {
 }
 
 /**
- * Opens the extension's page from the sidebar and returns the table row of the
- * test object.
+ * Opens one of the extension's pages from the sidebar and waits for the table
+ * rows of the objects with the names. Returns the row of each, in order.
  */
-export async function openListPage(frame: Frame): Promise<Locator> {
-  await frame.waitForSelector(`[data-testid="${pageLinkTestId}"]`, viewTimeout);
-  await clickSidebarItem(frame, pageLinkTestId);
+export async function openListPage(frame: Frame, pageId: PageId, objectNames: string[]): Promise<Locator[]> {
+  await openPageFromSidebar(frame, pageId);
   await closeDetails(frame);
 
-  const row = frame
-    .locator(".TableRow")
-    .filter({ has: frame.locator(".TableCell").getByText(testObjectName, { exact: true }) });
+  const rows = objectNames.map((name) =>
+    frame.locator(".TableRow").filter({ has: frame.locator(".TableCell").getByText(name, { exact: true }) }),
+  );
 
-  await row.waitFor(viewTimeout);
+  for (const row of rows) {
+    await row.waitFor(viewTimeout);
+  }
 
-  return row;
+  return rows;
 }
 
 /**
- * Opens the details of the row's object and returns the value of the details
- * panel's `Api Version` item, after checking that the extension's error
- * boundary rendered no error page in the drawer.
+ * The text of the cells of a table row, in order.
  */
-export async function openDetails(frame: Frame, row: Locator): Promise<string | null> {
-  await row.getByText(testObjectName, { exact: true }).click();
+export async function rowCells(row: Locator): Promise<string[]> {
+  return (await row.locator(".TableCell").allTextContents()).map((text) => text.trim());
+}
+
+/**
+ * Opens the details of the row's object, whose name is given, and returns the
+ * value of the item of the extension's panel with the name, after checking
+ * that the extension's error boundary rendered no error page in the drawer.
+ */
+export async function openDetails(frame: Frame, row: Locator, objectName: string, itemName: string): Promise<string> {
+  await row.getByText(objectName, { exact: true }).click();
 
   const details = frame.locator(".KubeObjectDetails");
-  const apiVersion = details
+  const item = details
     .locator(".DrawerItem")
-    .filter({ has: frame.locator(".name").getByText("Api Version", { exact: true }) })
+    .filter({ has: frame.locator(".name").getByText(itemName, { exact: true }) })
     .locator(".value");
 
-  await apiVersion.waitFor(viewTimeout);
+  await item.waitFor(viewTimeout);
 
   // The class of `ErrorPage`, as CSS modules name it in the bundle.
   const errorPages = await details.locator('[class*="_errorPage_"]').count();
@@ -767,33 +768,5 @@ export async function openDetails(frame: Frame, row: Locator): Promise<string | 
     throw new Error(`The details drawer shows ${errorPages} error page(s) of the extension`);
   }
 
-  return apiVersion.textContent();
-}
-
-/**
- * Opens the context menu of the row and returns the menu, which the host
- * renders outside the row.
- */
-export async function openRowMenu(frame: Frame, row: Locator): Promise<Locator> {
-  const trigger = row.locator('.TableCell.menu [data-testid^="icon-for-menu-actions-for-kube-object-menu-for-"]');
-  const triggerTestId = await trigger.getAttribute("data-testid", viewTimeout);
-
-  if (!triggerTestId) {
-    throw new Error("The row has no menu");
-  }
-
-  await trigger.click();
-
-  const menu = frame.getByTestId(triggerTestId.replace(/^icon-for-/, ""));
-
-  await menu.waitFor(viewTimeout);
-
-  return menu;
-}
-
-/**
- * Waits for the item of the menu with the title.
- */
-export async function waitForMenuItem(menu: Locator, title: string) {
-  await menu.locator(".MenuItem .title").getByText(title, { exact: true }).waitFor(viewTimeout);
+  return ((await item.textContent()) ?? "").trim();
 }

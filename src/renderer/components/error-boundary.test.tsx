@@ -3,8 +3,8 @@
 import { Common, type Renderer } from "@freelensapp/extensions";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Example } from "../api/example/example-v1alpha2";
-import { ExamplesPage } from "../pages/examples-page-v1alpha2";
+import { ValsSecret } from "../api/vals-secret/vals-secret-v1";
+import { ValsSecretsPage } from "../pages/vals-secrets-page";
 import {
   ErrorBoundary,
   withDetailsErrorBoundary,
@@ -127,38 +127,35 @@ describe("the registration wrappers", () => {
   // A `try`/`catch` around the call of the page, as `withErrorPage` was, does not see this error: the host calls
   // `renderTableContents` from the render of its own list layout, a child of the page.
   it("keep an error that a callback of the page throws from the render of the host's list layout inside the page", () => {
-    const object = new Example({
-      apiVersion: "example.freelens.app/v1alpha2",
-      kind: "Example",
+    const object = new ValsSecret({
+      apiVersion: "digitalis.io/v1",
+      kind: "ValsSecret",
       metadata: { name: "example", namespace: "default", uid: "1", resourceVersion: "1", selfLink: "" },
-      spec: {},
+      spec: { data: {} },
     });
-    vi.spyOn(Example, "getStore").mockReturnValue({ items: [object] } as unknown as Renderer.K8sApi.KubeObjectStore<
-      Example,
-      Renderer.K8sApi.KubeApi<Example>
+    vi.spyOn(ValsSecret, "getStore").mockReturnValue({ items: [object] } as unknown as Renderer.K8sApi.KubeObjectStore<
+      ValsSecret,
+      Renderer.K8sApi.KubeApi<ValsSecret>
     >);
-    vi.spyOn(Example, "getSuspended").mockImplementation(() => {
-      throw new Error("no suspended field");
+    vi.spyOn(ValsSecret, "getDataCount").mockImplementation(() => {
+      throw new Error("no data field");
     });
     const { Page } = withPageErrorBoundary(extension, {
-      id: "example",
-      components: { Page: () => <ExamplesPage /> },
+      id: "vals-secrets",
+      components: { Page: () => <ValsSecretsPage extension={extension} /> },
     }).components;
 
     render(<Page params={{}} />);
 
-    expect(screen.getByText("Error: no suspended field")).toBeDefined();
+    expect(screen.getByText("Error: no data field")).toBeDefined();
     expect(Common.logger.error).toHaveBeenCalledTimes(1);
-    expect(Common.logger.error).toHaveBeenCalledWith(
-      "[example-extension]: Error: no suspended field",
-      expect.any(String),
-    );
+    expect(Common.logger.error).toHaveBeenCalledWith("[example-extension]: Error: no data field", expect.any(String));
   });
 
   it("keep an error of a details panel inside the panel, and render it again for a new object", () => {
     const { Details } = withDetailsErrorBoundary(extension, {
-      kind: "Example",
-      apiVersions: ["example.freelens.app/v1alpha2"],
+      kind: "ValsSecret",
+      apiVersions: ["digitalis.io/v1"],
       components: { Details: ThrowsFor },
     }).components;
 
@@ -184,8 +181,8 @@ describe("the registration wrappers", () => {
 
   it("render nothing for a menu item that throws, and leave the other items rendered", () => {
     const { MenuItem } = withMenuItemErrorBoundary(extension, {
-      kind: "Example",
-      apiVersions: ["example.freelens.app/v1alpha2"],
+      kind: "ValsSecret",
+      apiVersions: ["digitalis.io/v1"],
       components: { MenuItem: () => <Throws message="menu item" /> },
     }).components;
 
