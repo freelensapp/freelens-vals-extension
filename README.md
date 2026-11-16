@@ -18,8 +18,8 @@ Manager or GCP Secret Manager, into Kubernetes `Secret`s.
 The extension adds a "Vals" entry to the cluster sidebar, with a list page for
 each of the operator's resources, and a details panel for each:
 
-- **Vals Secrets**: the `Secret` that a `ValsSecret` writes, or the kind of
-  its custom target, the number of its data keys and its `Ready` condition.
+- **Vals Secrets**: the `Secret` that a `ValsSecret` writes, and the number
+  of its data keys.
   The details show the `ref` of every data source, the templates, the
   databases whose password the operator updates, the rollout targets, the
   custom target and its last apply, and the conditions.

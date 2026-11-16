@@ -12,13 +12,12 @@ const extension = { name: "vals-extension" } as Renderer.LensExtension;
 
 type Store = Renderer.K8sApi.KubeObjectStore<ValsSecret, Renderer.K8sApi.KubeApi<ValsSecret>>;
 
-const build = (name: string, spec: ValsSecret["spec"], status?: ValsSecret["status"]) =>
+const build = (name: string, spec: ValsSecret["spec"]) =>
   new ValsSecret({
     apiVersion: "digitalis.io/v1",
     kind: "ValsSecret",
     metadata: { name, namespace: "vals", uid: name, resourceVersion: "1", selfLink: "" },
     spec,
-    status,
   });
 
 afterEach(() => {
@@ -60,22 +59,7 @@ describe("ValsSecretsPage", () => {
     const target = { apiVersion: "v1", kind: "ConfigMap", template: "data: {}" };
     const items = [
       build("secret", { name: "written", data }),
-      build(
-        "target",
-        { data: { key: { ref: "ref+echo://value" } }, target },
-        {
-          conditions: [
-            {
-              type: "Ready",
-              status: "True",
-              reason: "Applied",
-              message: "",
-              lastTransitionTime: "2026-01-01T00:00:00Z",
-            },
-          ],
-          target: { apiVersion: "v1", kind: "ConfigMap", name: "target", namespace: "vals", mode: "create" },
-        },
-      ),
+      build("target", { data: { key: { ref: "ref+echo://value" } }, target }),
     ];
     vi.spyOn(ValsSecret, "getStore").mockReturnValue({ items } as unknown as Store);
 
@@ -83,10 +67,10 @@ describe("ValsSecretsPage", () => {
 
     const cells = screen.getAllByRole("row").map((row) => [...row.children].map((cell) => cell.textContent));
 
-    // Name, Namespace, Secret, Target, Data, Ready, Age
+    // Name, Namespace, Secret, Data, Age
     expect(cells).toEqual([
-      ["secret", "vals", "written", "-", "2", "-", ""],
-      ["target", "vals", "-", "ConfigMap", "1", "True", ""],
+      ["secret", "vals", "written", "2", ""],
+      ["target", "vals", "-", "1", ""],
     ]);
   });
 });

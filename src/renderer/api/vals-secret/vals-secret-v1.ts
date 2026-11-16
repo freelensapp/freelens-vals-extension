@@ -147,16 +147,6 @@ export class ValsSecret extends Renderer.K8sApi.LensExtensionKubeObject<
   static getDataCount(object: ValsSecret): number {
     return Object.keys(object.spec?.data ?? {}).length;
   }
-
-  /** The `Ready` condition, which the operator sets only with `spec.target`. */
-  static getReadyCondition(object: ValsSecret): Condition | undefined {
-    return object.status?.conditions?.find((condition) => condition.type === "Ready");
-  }
-
-  /** The kind of the last applied target: the `Target` printer column. */
-  static getTargetKind(object: ValsSecret): string | undefined {
-    return object.status?.target?.kind;
-  }
 }
 
 export class ValsSecretApi extends Renderer.K8sApi.KubeApi<ValsSecret> {}

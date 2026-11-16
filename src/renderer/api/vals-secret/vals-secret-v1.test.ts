@@ -49,42 +49,4 @@ describe("ValsSecret (v1)", () => {
       expect(ValsSecret.getDataCount(build(undefined))).toBe(0);
     });
   });
-
-  describe("getReadyCondition", () => {
-    const condition = (type: string, status: "True" | "False") => ({
-      type,
-      status,
-      reason: type === "Ready" ? "Applied" : "Other",
-      message: "",
-      lastTransitionTime: "2026-01-01T00:00:00Z",
-    });
-
-    it("returns the Ready condition", () => {
-      const object = build(
-        { data: {}, target },
-        { conditions: [condition("Other", "False"), condition("Ready", "True")] },
-      );
-
-      expect(ValsSecret.getReadyCondition(object)).toMatchObject({ status: "True", reason: "Applied" });
-    });
-
-    it("returns undefined without conditions, as without spec.target", () => {
-      expect(ValsSecret.getReadyCondition(build({ data: {} }))).toBeUndefined();
-      expect(ValsSecret.getReadyCondition(build({ data: {} }, {}))).toBeUndefined();
-    });
-  });
-
-  describe("getTargetKind", () => {
-    it("returns the kind of the last applied target", () => {
-      const status = {
-        target: { apiVersion: "v1", kind: "ConfigMap", name: "demo", namespace: "default", mode: "create" as const },
-      };
-
-      expect(ValsSecret.getTargetKind(build({ data: {}, target }, status))).toBe("ConfigMap");
-    });
-
-    it("returns undefined before the first apply", () => {
-      expect(ValsSecret.getTargetKind(build({ data: {}, target }))).toBeUndefined();
-    });
-  });
 });

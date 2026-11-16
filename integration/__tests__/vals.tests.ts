@@ -70,7 +70,7 @@ describe.skipIf(!(await appReady({ cluster: true })))("ValsSecret and DbSecret v
   it("lists the ValsSecrets", async () => {
     const [secret, target] = await openListPage(frame, "vals-secrets", ["test", "test-target"]);
 
-    // Name, Namespace, Secret, Target, Data, Ready; the cells of the host around them are left out.
+    // Name, Namespace, Secret, Data; the cells of the host around them are left out.
     expect(await rowCells(secret)).toEqual(
       expect.arrayContaining(["test", "integration-tests", "test-credentials", "3"]),
     );

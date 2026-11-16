@@ -14,9 +14,7 @@ const sortingCallbacks = {
   name: (object: ValsSecret) => object.getName(),
   namespace: (object: ValsSecret) => object.getNs(),
   secret: (object: ValsSecret) => ValsSecret.getSecretName(object),
-  target: (object: ValsSecret) => ValsSecret.getTargetKind(object),
   data: (object: ValsSecret) => ValsSecret.getDataCount(object),
-  ready: (object: ValsSecret) => ValsSecret.getReadyCondition(object)?.status,
   age: (object: ValsSecret) => object.getCreationTimestamp(),
 };
 
@@ -24,17 +22,13 @@ const renderTableHeader: { title: string; sortBy: keyof typeof sortingCallbacks;
   { title: "Name", sortBy: "name", className: styles.name },
   { title: "Namespace", sortBy: "namespace" },
   { title: "Secret", sortBy: "secret", className: styles.secret },
-  { title: "Target", sortBy: "target", className: styles.target },
   { title: "Data", sortBy: "data", className: styles.data },
-  { title: "Ready", sortBy: "ready", className: styles.ready },
   { title: "Age", sortBy: "age", className: styles.age },
 ];
 
 const searchFilters = [
   (object: ValsSecret) => object.getSearchFields(),
   (object: ValsSecret) => ValsSecret.getSecretName(object),
-  (object: ValsSecret) => ValsSecret.getTargetKind(object),
-  (object: ValsSecret) => ValsSecret.getReadyCondition(object)?.status,
 ];
 
 export interface ValsSecretsPageProps {
@@ -65,9 +59,7 @@ export const ValsSecretsPage = observer(({ extension }: ValsSecretsPageProps) =>
         <WithTooltip>{object.getName()}</WithTooltip>,
         <LinkToNamespace namespace={object.getNs()} />,
         <WithTooltip>{ValsSecret.getSecretName(object) ?? "-"}</WithTooltip>,
-        ValsSecret.getTargetKind(object) ?? "-",
         ValsSecret.getDataCount(object),
-        ValsSecret.getReadyCondition(object)?.status ?? "-",
         <KubeObjectAge object={object} key="age" />,
       ]}
     />
