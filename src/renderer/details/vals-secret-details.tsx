@@ -3,6 +3,7 @@ import * as MobxReact from "mobx-react";
 import { Fragment } from "react";
 import { ValsSecret } from "../api/vals-secret/vals-secret-v1";
 import styles from "./details.module.scss";
+import { ObjectAnnotations } from "./object-annotations";
 import { RolloutTargets } from "./rollout-targets";
 import { TemplateEditor, Templates } from "./templates";
 
@@ -161,6 +162,14 @@ function TargetStatusItems({ object, status }: { object: ValsSecret; status: Tar
         <LinkToObject object={object} objectRef={objectRef} />
       </DrawerItem>
       <DrawerItem name="Namespace">{status.namespace}</DrawerItem>
+      <ObjectAnnotations
+        title={`${status.kind} Annotations`}
+        apiVersion={status.apiVersion}
+        kind={status.kind}
+        name={status.name}
+        namespace={status.namespace}
+        revision={object.metadata.resourceVersion}
+      />
       <DrawerItem name="Mode">{status.mode}</DrawerItem>
       <DrawerItem name="Hash" hidden={!status.hash}>
         {status.hash}
@@ -183,6 +192,16 @@ export const ValsSecretDetails = observer(({ object }: ValsSecretDetailsProps) =
       <DrawerItem name="Secret">
         {secretName ? <LinkToSecret name={secretName} namespace={object.getNs()} /> : "-"}
       </DrawerItem>
+      {secretName && (
+        <ObjectAnnotations
+          title="Secret Annotations"
+          apiVersion="v1"
+          kind="Secret"
+          name={secretName}
+          namespace={object.getNs()}
+          revision={object.metadata.resourceVersion}
+        />
+      )}
       <DrawerItem name="Secret Type" hidden={!spec?.type}>
         {spec?.type}
       </DrawerItem>

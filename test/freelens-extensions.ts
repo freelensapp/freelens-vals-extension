@@ -72,15 +72,22 @@ const LinkToNamespace = ({ namespace }: { namespace?: string }) => React.createE
 const BadgeBoolean = ({ value }: { value: boolean }) => React.createElement("span", null, String(value));
 const KubeObjectAge = () => null;
 
+// The labels of a drawer item, as its name and the labels, unless hidden.
+const DrawerItemLabels = ({ name, labels, hidden }: { name: string; labels: string[]; hidden?: boolean }) =>
+  hidden ? null : React.createElement("div", { role: "group", "aria-label": name }, labels.join(" "));
+
 export const Renderer = {
   Component: {
     BadgeBoolean,
+    DrawerItemLabels,
     KubeObjectAge,
     KubeObjectListLayout,
     LinkToNamespace,
     WithTooltip,
   },
   K8sApi: {
+    // The host finds no API without a cluster; a test that needs one spies on `getApiByKind`.
+    apiManager: { getApiByKind: (): undefined => undefined },
     LensExtensionKubeObject,
     KubeApi: class KubeApi {},
     KubeObjectStore: class KubeObjectStore {},

@@ -20,17 +20,19 @@ each of the operator's resources, and a details panel for each:
 
 - **Vals Secrets**: the `Secret` that a `ValsSecret` writes, and the number
   of its data keys.
-  The details show the `ref` of every data source, the templates, the
-  databases whose password the operator updates, the rollout targets, the
-  custom target and its last apply, and the conditions.
+  The details show the annotations of the written `Secret` or custom target,
+  such as the time of the last update, the `ref` of every data source, the
+  templates, the databases whose password the operator updates, the rollout
+  targets, the custom target and its last apply, and the conditions.
 - **DB Secrets**: the `Secret` that a `DbSecret` writes, the Vault mount and
   role that issue its credentials, and whether the operator renews their
-  lease. The details show the templates and the rollout targets as well.
+  lease. The details show the annotations of the `Secret`, with its lease and
+  expiry, the templates and the rollout targets as well.
 
 The written `Secret` and the rollout targets link to their details in
-Freelens. The extension reads `ValsSecret` and `DbSecret` objects only: it
-never reads the data of a `Secret`, and shows the reference of a secret,
-never its value.
+Freelens. Of the objects that the operator writes, the extension reads the
+metadata only: it never reads the data of a `Secret`, and shows the reference
+of a secret, never its value.
 
 ## Requirements
 
