@@ -34,9 +34,14 @@ Freelens. Of the objects that the operator writes, the extension reads the
 metadata only: it never reads the data of a `Secret`, and shows the reference
 of a secret, never its value.
 
-![The Vals Secrets list with the details of a ValsSecret: its Secret and the Secret's annotations, the references of its data and a template, dark theme](docs/screenshots/vals-secret-details-dark.png)
-
-![The Vals Secrets list with the details of a ValsSecret, light theme](docs/screenshots/vals-secret-details-light.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/vals-secret-details-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/vals-secret-details-light.png">
+  <img
+    alt="The Vals Secrets list with the details of a ValsSecret: its Secret and the Secret's annotations, the references of its data and a template"
+    src="docs/screenshots/vals-secret-details-light.png"
+  >
+</picture>
 
 ## Requirements
 
