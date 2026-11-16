@@ -4,87 +4,72 @@
  */
 
 import { Renderer } from "@freelensapp/extensions";
-import { ExamplePreferencesStore } from "../common/store";
-import { Example as ExampleV1alpha1 } from "./api/example/example-v1alpha1";
-import { Example as ExampleV1alpha2 } from "./api/example/example-v1alpha2";
-import { createAvailableVersionPage } from "./components/available-version";
-import {
-  withDetailsErrorBoundary,
-  withMenuItemErrorBoundary,
-  withPageErrorBoundary,
-} from "./components/error-boundary";
-import { ExampleDetails as ExampleDetailsV1alpha1 } from "./details/example-details-v1alpha1";
-import { ExampleDetails as ExampleDetailsV1alpha2 } from "./details/example-details-v1alpha2";
-import { ExampleIcon } from "./icons";
-import { ExampleActiveToggleMenuItem as ExampleActiveToggleMenuItem_v1alpha1 } from "./menus/example-active-toggle-menu-item-v1alpha1";
-import { ExampleActiveToggleMenuItem as ExampleActiveToggleMenuItem_v1alpha2 } from "./menus/example-active-toggle-menu-item-v1alpha2";
-import { ExamplesPage as ExamplesPageV1alpha1 } from "./pages/examples-page-v1alpha1";
-import { ExamplesPage as ExamplesPageV1alpha2 } from "./pages/examples-page-v1alpha2";
-import { ExamplePreferenceHint, ExamplePreferenceInput } from "./preferences/example-preference";
+import { DbSecret } from "./api/db-secret/db-secret-v1beta1";
+import { ValsSecret } from "./api/vals-secret/vals-secret-v1";
+import { withDetailsErrorBoundary, withPageErrorBoundary } from "./components/error-boundary";
+import { DbSecretDetails } from "./details/db-secret-details";
+import { ValsSecretDetails } from "./details/vals-secret-details";
+import { ValsIcon } from "./icons";
+import { DbSecretsPage } from "./pages/db-secrets-page";
+import { ValsSecretsPage } from "./pages/vals-secrets-page";
 
-const ExamplesPage = createAvailableVersionPage("Examples", [
-  { kubeObjectClass: ExampleV1alpha2, PageComponent: ExamplesPageV1alpha2, version: "v1alpha2" },
-  { kubeObjectClass: ExampleV1alpha1, PageComponent: ExamplesPageV1alpha1, version: "v1alpha1" },
-]);
-
-// Every page, details panel and menu item renders inside an error boundary, so that an error it throws stays in its
-// place: the host has none around the details drawer or a menu item, and its boundary around the cluster frame would
-// replace the whole cluster view. Each registration field is mapped through its wrapper, so an entry added to it is
-// wrapped too.
-export default class ExampleRenderer extends Renderer.LensExtension {
-  async onActivate() {
-    ExamplePreferencesStore.getInstanceOrCreate().loadExtension(this);
-  }
-
-  appPreferences = [
-    {
-      title: "Example Preferences",
-      components: {
-        Input: () => <ExamplePreferenceInput />,
-        Hint: () => <ExamplePreferenceHint />,
-      },
-    },
-  ];
-
+// Every page and details panel renders inside an error boundary, so that an error it throws stays in its place: the
+// host has none around the details drawer, and its boundary around the cluster frame would replace the whole cluster
+// view. Each registration field is mapped through its wrapper, so an entry added to it is wrapped too.
+//
+// The extension has no menu items: vals-operator has no action on a `ValsSecret` or a `DbSecret` for one. A field
+// `kubeObjectMenuItems` added later is mapped through `withMenuItemErrorBoundary`.
+export default class ValsRenderer extends Renderer.LensExtension {
   kubeObjectDetailItems: Renderer.LensExtension["kubeObjectDetailItems"] = [
-    Renderer.K8sApi.detailsFor(ExampleV1alpha1, {
+    Renderer.K8sApi.detailsFor(ValsSecret, {
       priority: 10,
-      Details: ExampleDetailsV1alpha1,
+      Details: ValsSecretDetails,
     }),
-    Renderer.K8sApi.detailsFor(ExampleV1alpha2, {
+    Renderer.K8sApi.detailsFor(DbSecret, {
       priority: 10,
-      Details: ExampleDetailsV1alpha2,
+      Details: DbSecretDetails,
     }),
   ].map((registration) => withDetailsErrorBoundary(this, registration));
 
   clusterPages: Renderer.LensExtension["clusterPages"] = [
     {
-      id: "example",
+      id: "vals-secrets",
       components: {
-        Page: () => <ExamplesPage extension={this} />,
+        Page: () => <ValsSecretsPage extension={this} />,
+      },
+    },
+    {
+      id: "db-secrets",
+      components: {
+        Page: () => <DbSecretsPage extension={this} />,
       },
     },
   ].map((registration) => withPageErrorBoundary(this, registration));
 
+  // One parent entry, which expands to the pages of the two kinds, and is active when one of them is.
   clusterPageMenus = [
     {
-      id: "example",
-      title: ExampleV1alpha1.crd.title,
-      target: { pageId: "example" },
+      id: "vals",
+      title: "Vals",
       components: {
-        Icon: ExampleIcon,
+        Icon: ValsIcon,
       },
+    },
+    {
+      id: "vals-secrets",
+      parentId: "vals",
+      title: ValsSecret.crd.title,
+      target: { pageId: "vals-secrets" },
+      components: {},
+    },
+    {
+      id: "db-secrets",
+      parentId: "vals",
+      title: DbSecret.crd.title,
+      target: { pageId: "db-secrets" },
+      components: {},
     },
   ];
 
-  customResources = [ExampleV1alpha1, ExampleV1alpha2];
-
-  kubeObjectMenuItems: Renderer.LensExtension["kubeObjectMenuItems"] = [
-    Renderer.K8sApi.menuItemFor(ExampleV1alpha1, {
-      MenuItem: ExampleActiveToggleMenuItem_v1alpha1,
-    }),
-    Renderer.K8sApi.menuItemFor(ExampleV1alpha2, {
-      MenuItem: ExampleActiveToggleMenuItem_v1alpha2,
-    }),
-  ].map((registration) => withMenuItemErrorBoundary(this, registration));
+  customResources = [ValsSecret, DbSecret];
 }

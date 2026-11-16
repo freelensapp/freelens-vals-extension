@@ -1,8 +1,5 @@
 import { Main } from "@freelensapp/extensions";
-import { ExamplePreferencesStore } from "../common/store";
 
-export default class ExampleMain extends Main.LensExtension {
-  async onActivate() {
-    await ExamplePreferencesStore.getInstanceOrCreate().loadExtension(this);
-  }
-}
+// The extension has nothing to do in the main process. The host loads the main entry that `package.json` names, so
+// the entry stays.
+export default class ValsMain extends Main.LensExtension {}

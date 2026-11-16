@@ -15,10 +15,28 @@ operator that syncs secrets from the backends of
 [vals](https://github.com/helmfile/vals), such as HashiCorp Vault, AWS Secrets
 Manager or GCP Secret Manager, into Kubernetes `Secret`s.
 
-**Work in progress.** The extension is to show the operator's resources,
-`ValsSecret` and `DbSecret`, in the cluster view. Until then it is the
-[extension template](https://github.com/freelensapp/freelens-example-extension)
-with its `Example` resource, which the sections below still describe.
+The extension adds a "Vals" entry to the cluster sidebar, with a list page for
+each of the operator's resources, and a details panel for each:
+
+- **Vals Secrets**: the `Secret` that a `ValsSecret` writes, and the number
+  of its data keys.
+  The details show the annotations of the written `Secret` or custom target,
+  such as the time of the last update, the `ref` of every data source, the
+  templates, the databases whose password the operator updates, the rollout
+  targets, the custom target and its last apply, and the conditions.
+- **DB Secrets**: the `Secret` that a `DbSecret` writes, the Vault mount and
+  role that issue its credentials, and whether the operator renews their
+  lease. The details show the annotations of the `Secret`, with its lease and
+  expiry, the templates and the rollout targets as well.
+
+The written `Secret` and the rollout targets link to their details in
+Freelens. Of the objects that the operator writes, the extension reads the
+metadata only: it never reads the data of a `Secret`, and shows the reference
+of a secret, never its value.
+
+![The Vals Secrets list with the details of a ValsSecret: its Secret and the Secret's annotations, the references of its data and a template, dark theme](docs/screenshots/vals-secret-details-dark.png)
+
+![The Vals Secrets list with the details of a ValsSecret, light theme](docs/screenshots/vals-secret-details-light.png)
 
 ## Requirements
 
@@ -27,36 +45,31 @@ with its `Example` resource, which the sections below still describe.
 
 ## Supported APIs
 
-The resources of vals-operator to be supported:
+The resources of [vals-operator](https://github.com/digitalis-io/vals-operator)
+v0.12.0:
 
 | API Group      | API Version | Kind         | Scope      |
 | -------------- | ----------- | ------------ | ---------- |
 | `digitalis.io` | v1          | `ValsSecret` | Namespaced |
 | `digitalis.io` | v1beta1     | `DbSecret`   | Namespaced |
 
-The placeholder resource of the template:
-
-### example.freelens.app
-
-| API Version | Kind      | Scope      | Description                        |
-| ----------- | --------- | ---------- | ---------------------------------- |
-| v1alpha1    | `Example` | Namespaced | Example custom resource (v1alpha1) |
-| v1alpha2    | `Example` | Namespaced | Example custom resource (v1alpha2) |
-
-To install the Custom Resource Definitions for this example, run:
+To install the Custom Resource Definitions without the operator, for example
+on a test cluster, run:
 
 ```sh
-kubectl apply -k examples/v1alpha1/crds
-kubectl apply -k examples/v1alpha2/crds
+kubectl apply -k examples/crds
 ```
 
-Example resources for testing:
+Test objects, in the namespace `vals-example`: a `ValsSecret` with data,
+templates, a database and a rollout target, a `ValsSecret` with a custom
+target, and a `DbSecret`:
 
 ```sh
-kubectl apply -k examples/v1alpha2/test
-# or
-kubectl apply -k examples/v1alpha1/test
+kubectl apply -k examples/test
 ```
+
+Without the operator they are not reconciled: they write no `Secret` and get
+no status.
 
 ## Install
 
@@ -207,9 +220,9 @@ pnpm test:integration
 ```
 
 The tests install the checkout in place, replacing any other installation of
-the extension in Freelens dev. They delete the `examples.example.freelens.app`
-CRD, and with it every `Example`, so use a kind cluster with nothing worth
-keeping. Without Freelens dev or the cluster the tests are skipped.
+the extension in Freelens dev. They delete the `valssecrets.digitalis.io` and
+`dbsecrets.digitalis.io` CRDs, and with them every `ValsSecret` and
+`DbSecret`, so use a kind cluster with nothing worth keeping. Without Freelens dev or the cluster the tests are skipped.
 
 Optional variables:
 

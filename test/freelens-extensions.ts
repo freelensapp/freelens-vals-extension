@@ -41,13 +41,6 @@ class LensExtensionKubeObject {
   }
 }
 
-// The host's store loads the saved model with `fromStore()` and saves it
-// whenever `toJSON()` changes, through a `reaction`. The stub keeps nothing; a
-// test that needs that behaviour sets up the reaction itself.
-class ExtensionStore<M extends object> {
-  constructor(_params: { configName: string; defaults: M }) {}
-}
-
 interface KubeObjectListLayoutProps {
   store: { items: unknown[] };
   renderTableContents: (item: unknown) => React.ReactNode[];
@@ -55,20 +48,46 @@ interface KubeObjectListLayoutProps {
 
 // Only the part of the host's list layout where it calls back into the
 // extension: it calls `renderTableContents` for every item of the store from
-// its own render, a child of the page, and renders the cells.
+// its own render, a child of the page, and renders the cells, as rows and
+// cells for the tests to read.
 function KubeObjectListLayout({ store, renderTableContents }: KubeObjectListLayoutProps) {
   return React.createElement(
     "div",
-    null,
-    store.items.map((item, index) => React.createElement("div", { key: index }, ...renderTableContents(item))),
+    { role: "table" },
+    store.items.map((item, index) =>
+      React.createElement(
+        "div",
+        { key: index, role: "row" },
+        renderTableContents(item).map((cell, column) =>
+          React.createElement("span", { key: column, role: "cell" }, cell),
+        ),
+      ),
+    ),
   );
 }
 
+// The cells of the list pages, as text.
+const WithTooltip = ({ children }: { children?: React.ReactNode }) => React.createElement("span", null, children);
+const LinkToNamespace = ({ namespace }: { namespace?: string }) => React.createElement("span", null, namespace);
+const BadgeBoolean = ({ value }: { value: boolean }) => React.createElement("span", null, String(value));
+const KubeObjectAge = () => null;
+
+// The labels of a drawer item, as its name and the labels, unless hidden.
+const DrawerItemLabels = ({ name, labels, hidden }: { name: string; labels: string[]; hidden?: boolean }) =>
+  hidden ? null : React.createElement("div", { role: "group", "aria-label": name }, labels.join(" "));
+
 export const Renderer = {
   Component: {
+    BadgeBoolean,
+    DrawerItemLabels,
+    KubeObjectAge,
     KubeObjectListLayout,
+    LinkToNamespace,
+    WithTooltip,
   },
   K8sApi: {
+    // The host finds no API without a cluster; a test that needs one spies on `getApiByKind`.
+    apiManager: { getApiByKind: (): undefined => undefined },
     LensExtensionKubeObject,
     KubeApi: class KubeApi {},
     KubeObjectStore: class KubeObjectStore {},
@@ -81,8 +100,5 @@ export const Common = {
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
-  },
-  Store: {
-    ExtensionStore,
   },
 };

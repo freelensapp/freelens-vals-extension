@@ -1,0 +1,32 @@
+@use "../vars";
+
+.templateItem {
+  margin-bottom: vars.$margin * 2;
+}
+
+.editor {
+  resize: none;
+  overflow: hidden;
+  border: 1px solid var(--borderFaintColor);
+  border-radius: 4px;
+}
+
+.dataTable {
+  margin-bottom: vars.$margin * 2;
+
+  :global(.TableCell) {
+    word-break: break-all;
+
+    &.key {
+      flex-grow: 1;
+    }
+
+    &.ref {
+      flex-grow: 3;
+    }
+
+    &.encoding {
+      flex-grow: 0.5;
+    }
+  }
+}

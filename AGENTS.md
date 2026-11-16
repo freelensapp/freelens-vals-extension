@@ -9,10 +9,10 @@ This file provides guidance to coding agents when working with code in this repo
 This repository is the Freelens extension for
 [vals-operator](https://github.com/digitalis-io/vals-operator), which syncs
 secrets from the backends of [vals](https://github.com/helmfile/vals) into
-Kubernetes `Secret`s. It is to model the operator's kinds, `ValsSecret`
-(`digitalis.io/v1`) and `DbSecret` (`digitalis.io/v1beta1`). Until then it
-holds the template's `Example` resource, which the sections below describe and
-which the implementation replaces.
+Kubernetes `Secret`s. It models the operator's kinds, `ValsSecret`
+(`digitalis.io/v1`) and `DbSecret` (`digitalis.io/v1beta1`), as of
+vals-operator v0.12.0: a list page and a details panel for each, under one
+"Vals" entry of the cluster sidebar.
 
 The build, type-check, test and release setup is the one of
 freelensapp/freelens-example-extension, the reference template for Freelens
@@ -100,10 +100,11 @@ An extension that renders `Renderer.Component.MonacoEditor` compiles against
 `monaco-editor` without importing it, so it declares `monaco-editor` in
 `devDependencies` at the host's version as well. `MonacoEditorProps` takes its
 `options` and callback types from that package; without it they are `any`, and
-`skipLibCheck` hides the unresolved import. This extension renders no editor and
-does not declare it ("The host-provided libraries, and how to mark them
-external" in Freelens's `migrating-from-v1.md`, and contracts C3 and C11 of
-`api.md`).
+`skipLibCheck` hides the unresolved import. This extension renders the editor,
+read-only, for the templates of a `ValsSecret` and a `DbSecret`
+(`src/renderer/details/templates.tsx`), and declares it ("The host-provided
+libraries, and how to mark them external" in Freelens's `migrating-from-v1.md`,
+and contracts C3 and C11 of `api.md`).
 
 ## Common Commands
 
@@ -146,24 +147,24 @@ pnpm clean:all            # Clean everything (dist, dts, node_modules, tgz)
 
 ```text
 src/
-  main/index.ts                  # Main entry (Main.LensExtension): loads the preferences store
+  main/index.ts                  # Main entry (Main.LensExtension): does nothing, the host loads it
   renderer/index.tsx             # Renderer entry (Renderer.LensExtension): every registration
-  renderer/api/example/          # Example model per API version (v1alpha1, v1alpha2), with its tests
-  renderer/api/types.ts          # Types shared by the models
-  renderer/pages/                # List page per API version, and their CSS module
-  renderer/details/              # Details panel per API version
-  renderer/menus/                # Suspend/Resume menu item per API version
-  renderer/components/           # createAvailableVersionPage, ErrorBoundary and its registration wrappers, ErrorPage
-  renderer/preferences/          # The preference input and hint
+  renderer/api/vals-secret/      # ValsSecret model (digitalis.io/v1), with its tests
+  renderer/api/db-secret/        # DbSecret model (digitalis.io/v1beta1), with its tests
+  renderer/api/types.ts          # The CRD metadata type and the rollout target shared by the models
+  renderer/pages/                # List page per kind, their tests and their CSS module
+  renderer/details/              # Details panel per kind, the parts they share and their CSS module
+  renderer/components/           # getServedStore and KindNotServed, ErrorBoundary and its registration wrappers, ErrorPage
   renderer/icons/                # SVG icons, imported with ?raw
   renderer/vars.scss             # SCSS variables
-  common/store/                  # ExamplePreferencesStore, loaded by main and renderer
+  common/                        # No source; its tsconfig.json stays for the editor and the environment tests
 test/freelens-extensions.ts      # Runtime stub of @freelensapp/extensions for Vitest
 environment-tests/               # Probes for the per-environment programs
 build/                           # Vite plugins: host modules, standard decorators, CSS module declarations
 integration/__tests__/           # Integration tests, run against Freelens dev over CDP, and their shared module
 integration/fixtures/            # Test objects of the integration tests per API version
-examples/                        # CRDs and test objects per API version
+examples/crds/                   # The CRDs of vals-operator v0.12.0
+examples/test/                   # Test objects of both kinds
 ```
 
 Build output goes to `dist/`: `main.js`, `renderer.js` and `renderer.css`, with
@@ -172,8 +173,9 @@ source maps. `main` and `renderer` in `package.json` point at the two entries.
 ## CRD KubeObject Pattern
 
 A model is a subclass of `Renderer.K8sApi.LensExtensionKubeObject`, one file
-per API version: `src/renderer/api/example/example-v1alpha1.ts` and
-`example-v1alpha2.ts`, each exporting a class named `Example`.
+per kind and API version: `src/renderer/api/vals-secret/vals-secret-v1.ts`
+exports `ValsSecret`, and `src/renderer/api/db-secret/db-secret-v1beta1.ts`
+exports `DbSecret`. Each kind is served in one version.
 
 The host reads the model's metadata from the class, through `static readonly`
 properties. The objects it hands to the extension, in a list, a details panel
@@ -191,64 +193,73 @@ is not, and calling it throws. So:
   for the other version (see "Renderer Components"). `declare` emits nothing,
   so the runtime object is the host's as before.
 - **Per-object logic**: a `static` method that takes the object, such as
-  `Example.getSuspended(object)`.
+  `ValsSecret.getSecretName(object)`.
 - **Fields**: read `object.spec` and `object.status` through the model's typed
-  `ExampleSpec` and `ExampleStatus`.
+  `ValsSecretSpec` and `ValsSecretStatus`. Neither CRD requires `spec`, so the
+  spec type parameter is `ValsSecretSpec | undefined`, and the code reads
+  `object.spec?.…`.
 - **Forbidden**: instance methods on the subclass; a fallback such as
-  `typeof (object as any).getSuspended === "function" ? ...`, which always
+  `typeof (object as any).getSecretName === "function" ? ...`, which always
   takes the fallback; `as any`.
 
 ```typescript
-export class Example extends Renderer.K8sApi.LensExtensionKubeObject<
+export class ValsSecret extends Renderer.K8sApi.LensExtensionKubeObject<
   Renderer.K8sApi.KubeObjectMetadata,
-  ExampleStatus,
-  ExampleSpec
+  ValsSecretStatus,
+  // The CRD does not require the spec.
+  ValsSecretSpec | undefined
 > {
-  declare kind: "Example";
-  declare apiVersion: "example.freelens.app/v1alpha2";
+  declare kind: "ValsSecret";
+  declare apiVersion: "digitalis.io/v1";
 
-  static readonly kind = "Example";
+  static readonly kind = "ValsSecret";
   static readonly namespaced = true;
-  static readonly apiBase = "/apis/example.freelens.app/v1alpha2/examples";
+  static readonly apiBase = "/apis/digitalis.io/v1/valssecrets";
 
-  static readonly crd: ExampleKubeObjectCRD = {
-    apiVersions: ["example.freelens.app/v1alpha2"],
-    plural: "examples",
-    singular: "example",
-    shortNames: ["ex"],
-    title: "Examples",
+  static readonly crd: ValsKubeObjectCRD = {
+    apiVersions: ["digitalis.io/v1"],
+    plural: "valssecrets",
+    singular: "valssecret",
+    title: "Vals Secrets",
   };
 
-  static getSuspended(object: Example): boolean {
-    return object.spec.suspended ?? false;
+  static getSecretName(object: ValsSecret): string | undefined {
+    if (object.spec?.target) {
+      return undefined;
+    }
+
+    return object.spec?.name || object.getName();
   }
 }
 
-export class ExampleApi extends Renderer.K8sApi.KubeApi<Example> {}
-export class ExampleStore extends Renderer.K8sApi.KubeObjectStore<Example, ExampleApi> {}
+export class ValsSecretApi extends Renderer.K8sApi.KubeApi<ValsSecret> {}
+export class ValsSecretStore extends Renderer.K8sApi.KubeObjectStore<ValsSecret, ValsSecretApi> {}
 ```
 
 The file also exports a `KubeApi` and a `KubeObjectStore` subclass. The list
 page uses the `KubeApi` type for `KubeObjectListLayout`; neither is
 instantiated, because the store comes from the host, through
-`Example.getStore()`.
+`ValsSecret.getStore()`.
 
-`src/renderer/index.tsx` registers each version's details panel
-(`kubeObjectDetailItems`) and menu item (`kubeObjectMenuItems`) with
-`Renderer.K8sApi.detailsFor` and `Renderer.K8sApi.menuItemFor`, which take
-`kind` and `crd.apiVersions` from the model class, and one "Examples" page
-(`clusterPages`, `clusterPageMenus`).
-That page is made by `createAvailableVersionPage` from the list pages of both
-versions, newest first: it renders the first one whose store the host has,
-and a "not available" message when the cluster serves neither.
+`src/renderer/index.tsx` registers each kind's details panel
+(`kubeObjectDetailItems`) with `Renderer.K8sApi.detailsFor`, which takes
+`kind` and `crd.apiVersions` from the model class, and one page per kind,
+"Vals Secrets" and "DB Secrets" (`clusterPages`). In `clusterPageMenus` the
+two pages are children (`parentId`) of one entry, "Vals", which has the icon
+and no page of its own: its link expands it, and it is active when one of its
+children is. The extension has no menu items: vals-operator v0.12.0 has no
+action on an object for one to take (step 5 of "Adding an API").
 
-`customResources` lists the model classes of both versions. The host reads the
-group and plural from each class's `crd`, and while the extension is enabled
-it leaves the resource out of the Custom Resources tree of the cluster
-sidebar, where it would otherwise be listed a second time next to the
-"Examples" page. Both versions name the same group and plural, so either class
-alone would do; both are listed so that removing one version leaves the other
-registered. The definition stays in the Definitions list, and the host's own
+A page gets the host's store with `getServedStore()` of
+`src/renderer/components/kind-not-served.tsx`, which returns `undefined`
+where the host's `getStore()` throws, and renders `KindNotServed`, a "not
+available" message, when the cluster does not serve the kind.
+
+`customResources` lists both model classes. The host reads the group and
+plural from each class's `crd`, and while the extension is enabled it leaves
+the resources out of the Custom Resources tree of the cluster sidebar, where
+they would otherwise be listed a second time next to the extension's pages.
+The definitions stay in the Definitions list, and the host's own
 list and details stay reachable by URL and from the command palette. A model
 the extension only decorates, with a details panel or a menu item and no page
 of its own, stays out of the field: registered, it would leave the tree with
@@ -256,20 +267,21 @@ nothing in its place. The host rejects an entry it cannot read (no `kind`, no
 `crd` or `apiBase`, a core-group resource) with an error in the log, and the
 resource stays in the tree (contract C6 of `api.md`).
 
-The page it returns is an `observer`. `getStore()` reads the host's API
-registry, which is observable, and the host registers a CRD's APIs only after
-the cluster frame has loaded the CRDs. Freelens restores the last page when a
-cluster is opened, so the page often renders before that; as an `observer` it
-renders again when the version is served, and otherwise it keeps showing "not
-available" until the user navigates away and back. Any component that chooses
-a version through `getStore()` is an `observer` for the same reason.
-`src/renderer/components/available-version.test.tsx` checks it: its spy on
-`getStore` reads an observable, and the page follows when the test sets it.
+Each page is an `observer`. `getStore()` reads the host's API registry, which
+is observable, and the host registers a CRD's APIs only after the cluster
+frame has loaded the CRDs. Freelens restores the last page when a cluster is
+opened, so the page often renders before that; as an `observer` it renders
+again when the kind is served, and otherwise it keeps showing "not available"
+until the user navigates away and back. Any component that chooses what to
+render through `getStore()` is an `observer` for the same reason.
+`src/renderer/pages/vals-secrets-page.test.tsx` and `db-secrets-page.test.tsx`
+check it: their spy on `getStore` reads an observable, and the page follows
+when the test sets it.
 
 ### Adding an API
 
 A new kind, or a new version of a kind, takes the same set of files as
-`Example`, one per version. The steps, in order:
+`ValsSecret`, one per version. The steps, in order:
 
 1. **The types.** They follow the API of the controller that serves the
    resource, read from its sources at the release that serves the version,
@@ -306,9 +318,11 @@ A new kind, or a new version of a kind, takes the same set of files as
    per-object logic, and the `KubeApi` and `KubeObjectStore` subclasses.
    `apiBase`, `crd.apiVersions` and `declare apiVersion` name the group and
    version, `crd` the plural, singular and short names of the CRD.
-3. **The list page** per version in `src/renderer/pages/`, joined into one page
-   per kind by `createAvailableVersionPage`, newest version first, and
-   registered once in `clusterPages` and `clusterPageMenus`.
+3. **The list page** per version in `src/renderer/pages/`, an `observer` that
+   renders `KindNotServed` when `getServedStore()` finds no store, registered
+   in `clusterPages`, and in `clusterPageMenus` as a child of the "Vals" entry.
+   A kind served in more than one version gets one page that renders the list
+   of the newest version the cluster serves.
 4. **The details panel** per version in `src/renderer/details/`, registered in
    `kubeObjectDetailItems` with `Renderer.K8sApi.detailsFor` and the version's
    model class.
@@ -321,9 +335,10 @@ A new kind, or a new version of a kind, takes the same set of files as
 7. **Tests** for the static helpers, next to the model, and for any logic in
    the page or panel; a member of the host that a test reaches goes into the
    stub, as small as the test needs.
-8. **`examples/<version>/`**: the CRD and a test object, applied with
-   `kubectl apply -k` as `README.md` shows, and a row per version in the
-   resource table of `README.md`.
+8. **`examples/`**: the CRD in `examples/crds/`, copied from the operator's
+   release with the source and the tag named in the kustomization, a test
+   object in `examples/test/`, applied with `kubectl apply -k` as `README.md`
+   shows, and a row per version in the resource table of `README.md`.
 
 Then check the result in Freelens dev ("Checking the Extension in Freelens
 Dev"): the page lists the test object, the details show every field, the
@@ -341,7 +356,8 @@ menu items work, and the resource is gone from the Custom Resources tree.
   - The boundary is applied where the registrations are made: `clusterPages`, `kubeObjectDetailItems` and
     `kubeObjectMenuItems` are mapped through `withPageErrorBoundary`, `withDetailsErrorBoundary` and
     `withMenuItemErrorBoundary`, each taking `this` and a registration, so an entry added to a field is wrapped as well.
-    A `globalPages` field is mapped through `withPageErrorBoundary` too. Each field is annotated with its type from
+    A `globalPages` field is mapped through `withPageErrorBoundary` too. This extension has no `kubeObjectMenuItems`
+    field; one added later is mapped through `withMenuItemErrorBoundary`, which stays for it, with its test. Each field is annotated with its type from
     `Renderer.LensExtension` (`clusterPages: Renderer.LensExtension["clusterPages"] = [...]`), because the mapping
     refers to `this`, and its type would otherwise depend on itself.
   - The wrappers take the registration that `Renderer.K8sApi.detailsFor` and `menuItemFor` built, so the helpers check
@@ -362,27 +378,27 @@ menu items work, and the resource is gone from the Custom Resources tree.
   commit the regenerated file with a change to its SCSS module. `pnpm clean:dts` removes them.
 - Icons are SVG files imported with `?raw` and rendered by `Renderer.Component.Icon` through its `svg` prop.
 - The `kubeObjectDetailItems` and `kubeObjectMenuItems` registrations in `src/renderer/index.tsx` are made by
-  `Renderer.K8sApi.detailsFor(Example, { priority: 10, Details })` and
-  `Renderer.K8sApi.menuItemFor(Example, { MenuItem })`, not written out with `kind` and `apiVersions`. The helper takes
+  `Renderer.K8sApi.detailsFor(ValsSecret, { priority: 10, Details })` and
+  `Renderer.K8sApi.menuItemFor(ValsSecret, { MenuItem })`, not written out with `kind` and `apiVersions`. The helper takes
   both from the model class and types the props of `Details` and `MenuItem` from it, so a wrapper that passes more
   props, such as `(props) => <Details {...props} extension={this} />`, needs no props annotation, and a component
   written for another model fails the type check. The
   check is structural: it tells two versions of one kind apart only by the `declare apiVersion` literal of each model
   ("CRD KubeObject Pattern").
-- The props of a details panel are, or extend, `Renderer.Component.KubeObjectDetailsProps<Example>`, and those of a menu
-  item `Common.Types.KubeObjectMenuItemProps<Example>`: the concrete model class, never `any`, and only what the host
+- The props of a details panel are, or extend, `Renderer.Component.KubeObjectDetailsProps<ValsSecret>`, and those of a menu
+  item `Common.Types.KubeObjectMenuItemProps<ValsSecret>`: the concrete model class, never `any`, and only what the host
   passes. A menu item does not extend `Renderer.Component.KubeObjectMenuProps`, the props of the host's whole
   `KubeObjectMenu` (`id`, `editable`, `removable`, `onMenuReady` and more). That compiles, because both require only
   `object`, and the item then promises props the host never passes.
 - The host renders a cluster page with `params` only. A page that needs the extension gets it from the registration
-  (`Page: () => <ExamplesPage extension={this} />`), with the page component created once, outside the registration.
+  (`Page: () => <ValsSecretsPage extension={this} />`), with the page component created once, outside the registration.
   `PageComponents.Page` is typed with the props the host passes, `Common.Types.PageComponentProps`, so the type check
   rejects a page that requires another prop. It does not reject one that declares another prop as optional next to
   `params`; that prop is `undefined`.
 - When porting another extension from v1, expect the type check to reject `clusterPages` and `globalPages`
   registrations that compiled under v1 and get `undefined` at runtime:
-  - a component that requires props, passed as the page itself: `Page: createAvailableVersionPage(...)`, or
-    `Page: MyPage` where `MyPage` takes `extension`;
+  - a component that requires props, passed as the page itself: `Page: ValsSecretsPage`, or `Page: MyPage` where
+    `MyPage` takes `extension`;
   - a wrapper that declares the prop instead of passing it: `Page: (props: { extension: ... }) => <MyPage {...props} />`;
   - a page whose props type names its parameters (`{ params?: { query: PageParam } }`).
 
@@ -726,7 +742,7 @@ the test needs. The other host modules are not stubbed: `react`, `mobx` and
 
 Vitest runs the development build of mobx, so a test that imports
 a class with `@observable` on a field without `accessor` fails when the class
-is defined; `src/common/store/preferences-store.test.ts` relies on that.
+is defined.
 
 The root `tsconfig.json` checks the tooling files. It has `checkJs`, so the
 Vite config and the build plugins are type-checked too; give their function
@@ -867,21 +883,19 @@ file is a session of its own on the one app, and fails on any error logged by
 either process:
 
 - `extensions.tests.ts` uninstalls whatever installation of the extension the
-  app has, installs this checkout in place from the Extensions page and opens
-  its preferences page, without changing the preference: the extension's tab
-  in the "Extensions" tab group shows the title and the checkbox label of its
-  `appPreferences` entry. It needs no cluster.
-- `example-v1alpha1.tests.ts` and `example-v1alpha2.tests.ts` open the kind
-  cluster with the CRD of one API version and its test object, and click
-  through the extension's views: the list page shows a row for the object,
-  its details show the extension's panel with `Api Version` set to the
-  session's version and no error page of the error boundary, and the row's
-  menu lists the extension's `Suspend` item, which is not clicked. Each view
-  is an `it` that navigates from the sidebar itself, so that it does not
-  depend on the state another left. They do not check the columns, every
-  field, what a menu action does, or the Custom Resources tree. They keep an
-  in-place installation of this checkout that is enabled, and install it
-  otherwise.
+  app has, and installs this checkout in place from the Extensions page. It
+  needs no cluster.
+- `vals.tests.ts` opens the kind cluster with the CRDs of both kinds and the
+  test objects of `examples/test`, and clicks through the extension's views:
+  for each kind, the list page, opened from the "Vals" entry of the sidebar,
+  shows a row for each test object with the cells of the extension's columns
+  (the written `Secret`, the data count, the Vault mount and role), and the
+  details of one object show the extension's panel, with its `Secret` or
+  `Vault Mount` item, and no error page of the error boundary. Each view is an
+  `it` that navigates from the sidebar itself, so that it does not depend on
+  the state another left. It does not check every field, the links, or the
+  Custom Resources tree. It keeps an in-place installation of this checkout
+  that is enabled, and installs it otherwise.
 
 The tests are deterministic, so nothing retries them: the config sets no
 `retry`, and the workflow runs the step once, under `timeout 600`. A retry
@@ -936,21 +950,19 @@ The workflow sets `TURBO_LOG_ORDER=stream` for `pnpm dev`: in GitHub Actions
 turbo otherwise groups the output of a task until it ends, and the persistent
 `dev` task never ends, so the log would stay empty.
 
-There is one session per API version because the cluster and the app are
-singletons: the CRD `examples.example.freelens.app` is one object, whose
-`examples/v1alpha1` definition serves v1alpha1 only and whose
-`examples/v1alpha2` definition serves both versions, and the app reads which
-versions are served when it connects to the cluster. So the v1alpha1 session
-checks that the page falls back to the v1alpha1 list, and the v1alpha2
-session that it picks v1alpha2, the newest version. Vitest runs the files one
-at a time (`fileParallelism: false`), in no set order, and none depends on
-another having run: each session disconnects the kind cluster, removes the
-leftovers of an earlier run (the namespace `integration-tests` and the CRD),
-applies the CRD from `examples/<version>/crds`, waits until it is
-established, applies `integration/fixtures/<version>/` (the object of
-`examples/<version>/test`, in the namespace `integration-tests`, which the
-kustomization creates), and only then connects the cluster. The session then
-selects `integration-tests` in the namespace filter of the extension's own
+Each kind is served in one version, so one session covers both: the cluster
+and the app are singletons, and the app reads which CRDs are served when it
+connects to the cluster. Vitest runs the files one at a time
+(`fileParallelism: false`), in no set order, and none depends on another
+having run: the session disconnects the kind cluster, removes the leftovers of
+an earlier run (the namespace `integration-tests` and the CRDs
+`valssecrets.digitalis.io` and `dbsecrets.digitalis.io`), applies the CRDs
+from `examples/crds`, waits until they are established, applies
+`integration/fixtures/` (the objects of `examples/test`, in the namespace
+`integration-tests`, which takes the place of the namespace of the examples),
+and only then connects the cluster. The session then expands the "Vals" entry
+of the sidebar unless it is expanded, which the app keeps, and selects
+`integration-tests` in the namespace filter of the extension's "Vals Secrets"
 page, which its `KubeObjectListLayout` renders for a namespaced resource,
 unless the filter already shows it: a new cluster shows only `default`, and
 the app keeps the selection for every namespaced list of the cluster. Without
@@ -959,7 +971,7 @@ opens no page of the host, whose requests can log errors of their own: the
 Pods page asks for pod metrics, and kind has no metrics server. A session's
 teardown stops collecting the errors first, then disconnects the cluster, so
 that the app logs no watch error for a CRD deleted under it, then deletes the
-fixtures and the CRD with `--wait`, also when a test failed, and then checks
+fixtures and the CRDs with `--wait`, also when a test failed, and then checks
 the errors. The app refreshes the cluster's permissions while it disconnects
 it, and when the refresh loses the race, its requests fail on its own proxy
 (`[AUTHORIZATION-REVIEW]`, `[AUTHORIZATION-NAMESPACE-REVIEW]`,
@@ -993,10 +1005,10 @@ the extension, and leave the kind cluster disconnected, with the namespace
 filter set to `integration-tests`. They touch no other cluster of the
 catalog. The profile lists the kind cluster only once its kubeconfig is in
 "Kubeconfig Syncs" (see "Checking the Extension in Freelens Dev"); without
-it the cluster sessions fail on the timeout of finding the cluster. A run
-deletes the CRD `examples.example.freelens.app`, and with it every `Example`
-on the cluster: run it only against a kind cluster with nothing worth
-keeping.
+it the cluster session fails on the timeout of finding the cluster. A run
+deletes the CRDs `valssecrets.digitalis.io` and `dbsecrets.digitalis.io`, and
+with them every `ValsSecret` and `DbSecret` on the cluster: run it only
+against a kind cluster with nothing worth keeping.
 
 ## Checking the Extension in Freelens Dev
 
@@ -1047,11 +1059,13 @@ syncs of the dev profile" in Freelens's `DEVELOPMENT.md`).
   in the main page.
 - Pages of the extension have URLs like `/extension/<name>/<pageId>`, with the
   package name's `@` dropped and `/` turned into `--`, for example
-  `/extension/freelensapp--vals-extension/example`. The sidebar entries
+  `/extension/freelensapp--vals-extension/vals-secrets`. The sidebar entries
   navigate in `onClick`; their `href` is not the page URL. A click on an
   entry's `[data-testid="sidebar-item-…"]` element does not navigate; a DOM
   `click()` on the link inside it, `[data-testid="link-for-sidebar-item-…"]`,
-  does. Neither does `history.pushState` in the cluster frame.
+  does. Neither does `history.pushState` in the cluster frame. The link of a
+  parent entry, such as "Vals", expands or collapses it rather than
+  navigating; its children are in the DOM only while it is expanded.
 - The root frame navigates with `Renderer.Navigation.navigate(url)` of the
   extension API, run in its page: `/extensions`, `/catalog`,
   `/preferences/extension/<name>`, `/cluster/<id>`. The application menu

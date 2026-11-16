@@ -4,10 +4,11 @@
  */
 
 // Installs this checkout in place in Freelens dev, uninstalling whatever
-// installation of the extension the app had, and opens its preferences.
+// installation of the extension the app had. The extension has no
+// preferences.
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { appReady, connectApp, installExtension, openExtensionPreferences } from "./extension-helpers";
+import { appReady, connectApp, installExtension } from "./extension-helpers";
 
 import type { AppSession } from "./extension-helpers";
 
@@ -25,13 +26,5 @@ describe.skipIf(!(await appReady({ cluster: false })))("extensions page tests", 
 
   it("installs the extension", () => {
     expect(session?.errors()).toEqual([]);
-  });
-
-  it("opens the extension's preferences", async () => {
-    if (!session) {
-      throw new Error("The app is not connected");
-    }
-
-    await openExtensionPreferences(session);
   });
 });
