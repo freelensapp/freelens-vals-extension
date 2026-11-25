@@ -19,8 +19,11 @@ export type ValsSecretRefreshMenuItemProps = Common.Types.KubeObjectMenuItemProp
 const title = "Refresh";
 
 // vals-operator records a refresh only after it read the backend and wrote the `Secret` or target. An operator older
-// than v0.14.0 never does, so the request stays pending there.
-const pendingTooltip = "Refresh requested, waiting for vals-operator v0.14.0 or newer to handle it";
+// than v0.14.0 never does, and a `ValsSecret` CRD older than v0.14.0 prunes `status.lastHandledRefreshAt`, so the
+// request stays pending there.
+const pendingTooltip =
+  "Refresh requested, waiting for vals-operator v0.14.0 or newer to handle it. It stays pending with an older " +
+  "operator or an older ValsSecret CRD.";
 
 /**
  * Requests that vals-operator reads the backend of a `ValsSecret` again, without waiting for the TTL: a merge patch of

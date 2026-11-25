@@ -6,10 +6,12 @@ const {
 } = Renderer;
 
 // vals-operator records a refresh only after it read the backend and wrote the `Secret` or target, and an operator
-// older than v0.14.0 never does.
+// older than v0.14.0 never does. A `ValsSecret` CRD older than v0.14.0 prunes `status.lastHandledRefreshAt` without
+// an error: the operator then handles the request, keeps it in memory and logs an error, and the status never shows it.
 const pendingTooltip =
   "Not handled yet: vals-operator v0.14.0 or newer reads the backend on the next reconcile and records it in " +
-  "Last Handled Refresh. A failed read stays pending and is retried. An older operator never handles it.";
+  "Last Handled Refresh. A failed read stays pending and is retried. An older operator never handles it, and a " +
+  "ValsSecret CRD older than v0.14.0 cannot record it, so it stays pending there.";
 
 /**
  * A value of the `refresh-requested-at` annotation or of `status.lastHandledRefreshAt`: a date when it is one, as

@@ -264,7 +264,11 @@ write succeeded; until then the refresh is pending
 (`ValsSecret.isRefreshPending`, the operator's own rule), and the item is
 disabled, as it is while its patch is sent, so that one click is one read of
 the backend. An older operator
-never records it, so the item stays disabled after the first click there; the
+never records it, so the item stays disabled after the first click there. So
+does a `ValsSecret` CRD older than v0.14.0 (`manageCrds: false`), which prunes
+`status.lastHandledRefreshAt` without an error: the operator handles the
+request, keeps the value in memory and logs that the CRD needs updating, but
+the status never shows it, and the tooltips name both causes. The
 details show the requested and the handled value, with a "Pending" badge. The
 patch runs in `onClick`, where an error does not reach the error boundary, so
 `patchObject` (`src/renderer/menus/patch-object.ts`) shows a failure with

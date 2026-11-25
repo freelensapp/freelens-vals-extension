@@ -59,7 +59,10 @@ handled in `status.lastHandledRefreshAt`, after the backend was read and the
 disabled, so that a click is one read of the backend, and the details show
 the requested refresh as "Pending". A failed read stays pending and the
 operator retries it. An older operator ignores the annotation, so there the
-action stays disabled after the first click.
+action stays disabled after the first click. The same happens with the
+`ValsSecret` CRD of an older release, which cannot store
+`status.lastHandledRefreshAt`: apply the CRD of v0.14.0 together with the
+operator.
 
 The action covers `ValsSecret` only. A `DbSecret` has none: a refresh there
 would issue new credentials and revoke the old lease.
