@@ -3,8 +3,8 @@ import { Renderer } from "@freelensapp/extensions";
 import type { ValsKubeObjectCRD } from "../types";
 
 // The API of `digitalis.io/v1beta1`, from `apis/digitalis.io/v1beta1/dbsecret_types.go` and
-// `config/crd/bases/digitalis.io_dbsecrets.yaml` of vals-operator v0.12.0. The example in the doc comment of
-// `DbSecretSpec` there (`secret`, `host`, `dc`) is older than the schema and not modelled.
+// `config/crd/bases/digitalis.io_dbsecrets.yaml` of vals-operator v0.14.0, unchanged since v0.12.0. The example in the
+// doc comment of `DbSecretSpec` there (`secret`, `host`, `dc`) is older than the schema and not modelled.
 
 export type DbRolloutKind = "Deployment" | "StatefulSet" | "deployment" | "statefulset";
 
