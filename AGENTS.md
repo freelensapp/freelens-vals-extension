@@ -11,8 +11,9 @@ This repository is the Freelens extension for
 secrets from the backends of [vals](https://github.com/helmfile/vals) into
 Kubernetes `Secret`s. It models the operator's kinds, `ValsSecret`
 (`digitalis.io/v1`) and `DbSecret` (`digitalis.io/v1beta1`), as of
-vals-operator v0.12.0: a list page and a details panel for each, under one
-"Vals" entry of the cluster sidebar.
+vals-operator v0.14.0: a list page and a details panel for each, under one
+"Vals" entry of the cluster sidebar, and a "Refresh" menu item for a
+`ValsSecret`.
 
 The build, type-check, test and release setup is the one of
 freelensapp/freelens-example-extension, the reference template for Freelens
@@ -154,6 +155,7 @@ src/
   renderer/api/types.ts          # The CRD metadata type and the rollout target shared by the models
   renderer/pages/                # List page per kind, their tests and their CSS module
   renderer/details/              # Details panel per kind, the parts they share and their CSS module
+  renderer/menus/                # Refresh menu item of a ValsSecret, patchObject, their tests and their CSS module
   renderer/components/           # getServedStore and KindNotServed, ErrorBoundary and its registration wrappers, ErrorPage
   renderer/icons/                # SVG icons, imported with ?raw
   renderer/vars.scss             # SCSS variables
@@ -163,7 +165,7 @@ environment-tests/               # Probes for the per-environment programs
 build/                           # Vite plugins: host modules, standard decorators, CSS module declarations
 integration/__tests__/           # Integration tests, run against Freelens dev over CDP, and their shared module
 integration/fixtures/            # Test objects of the integration tests per API version
-examples/crds/                   # The CRDs of vals-operator v0.12.0
+examples/crds/                   # The CRDs of vals-operator v0.14.0
 examples/test/                   # Test objects of both kinds
 ```
 
@@ -247,8 +249,35 @@ instantiated, because the store comes from the host, through
 "Vals Secrets" and "DB Secrets" (`clusterPages`). In `clusterPageMenus` the
 two pages are children (`parentId`) of one entry, "Vals", which has the icon
 and no page of its own: its link expands it, and it is active when one of its
-children is. The extension has no menu items: vals-operator v0.12.0 has no
-action on an object for one to take (step 5 of "Adding an API").
+children is.
+
+`kubeObjectMenuItems` has one item, "Refresh", for `ValsSecret` only
+(`src/renderer/menus/vals-secret-refresh-menu-item.tsx`), registered with
+`Renderer.K8sApi.menuItemFor`. The host renders it as an icon in the toolbar
+of the details panel and as an entry of the menu of the list. It sets the
+annotation `vals-operator.digitalis.io/refresh-requested-at` to the current
+time with a merge patch, through the store from `getServedStore()`, which
+makes vals-operator v0.14.0 or newer read the backend again on the next
+reconcile, without waiting for the TTL. The operator records the value it
+handled in `status.lastHandledRefreshAt`, only after the backend read and the
+write succeeded; until then the refresh is pending
+(`ValsSecret.isRefreshPending`, the operator's own rule), and the item is
+disabled, as it is while its patch is sent, so that one click is one read of
+the backend. An older operator
+never records it, so the item stays disabled after the first click there; the
+details show the requested and the handled value, with a "Pending" badge. The
+patch runs in `onClick`, where an error does not reach the error boundary, so
+`patchObject` (`src/renderer/menus/patch-object.ts`) shows a failure with
+`Notifications.error`. `DbSecret` has no such item: a refresh there would issue
+new credentials and revoke the old lease, and the operator does not read the
+annotation on it. The deprecated `vals-operator.digitalis.io/force` is not
+used.
+
+The host's `MenuItem` disables an item with CSS only (`pointer-events: none`):
+it calls `onClick` also when the item is disabled, so the handler checks the
+state itself, and the tooltip of a disabled item's icon never shows. The
+Refresh item restores the pointer events on its pending item with its CSS
+module, so that the tooltip says why it is disabled.
 
 A page gets the host's store with `getServedStore()` of
 `src/renderer/components/kind-not-served.tsx`, which returns `undefined`
@@ -356,8 +385,7 @@ menu items work, and the resource is gone from the Custom Resources tree.
   - The boundary is applied where the registrations are made: `clusterPages`, `kubeObjectDetailItems` and
     `kubeObjectMenuItems` are mapped through `withPageErrorBoundary`, `withDetailsErrorBoundary` and
     `withMenuItemErrorBoundary`, each taking `this` and a registration, so an entry added to a field is wrapped as well.
-    A `globalPages` field is mapped through `withPageErrorBoundary` too. This extension has no `kubeObjectMenuItems`
-    field; one added later is mapped through `withMenuItemErrorBoundary`, which stays for it, with its test. Each field is annotated with its type from
+    A `globalPages` field is mapped through `withPageErrorBoundary` too. Each field is annotated with its type from
     `Renderer.LensExtension` (`clusterPages: Renderer.LensExtension["clusterPages"] = [...]`), because the mapping
     refers to `this`, and its type would otherwise depend on itself.
   - The wrappers take the registration that `Renderer.K8sApi.detailsFor` and `menuItemFor` built, so the helpers check
@@ -891,7 +919,11 @@ either process:
   shows a row for each test object with the cells of the extension's columns
   (the written `Secret`, the data count, the Vault mount and role), and the
   details of one object show the extension's panel, with its `Secret` or
-  `Vault Mount` item, and no error page of the error boundary. Each view is an
+  `Vault Mount` item, and no error page of the error boundary. The Refresh
+  icon in the toolbar of the details of a `ValsSecret` sets the
+  `refresh-requested-at` annotation, read back through the cluster; no
+  operator runs, so the request stays pending, and the test checks that the
+  item is then disabled and the details show it as pending. Each view is an
   `it` that navigates from the sidebar itself, so that it does not depend on
   the state another left. It does not check every field, the links, or the
   Custom Resources tree. It keeps an in-place installation of this checkout
