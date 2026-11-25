@@ -1,0 +1,6 @@
+// The host's `.MenuItem.disabled` takes no pointer events, so the tooltip of its icon, which says why the item is
+// disabled, would never show. The item keeps the look of a disabled item, and its `onClick` does nothing.
+.pending:global(.MenuItem.disabled) {
+  pointer-events: auto;
+  cursor: default;
+}
