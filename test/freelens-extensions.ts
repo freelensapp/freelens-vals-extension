@@ -15,7 +15,7 @@ import { vi } from "vitest";
 class LensExtensionKubeObject {
   apiVersion?: string;
   kind?: string;
-  metadata?: { name?: string; namespace?: string };
+  metadata?: { name?: string; namespace?: string; annotations?: Record<string, string> };
   spec?: unknown;
   status?: unknown;
 
@@ -76,13 +76,51 @@ const KubeObjectAge = () => null;
 const DrawerItemLabels = ({ name, labels, hidden }: { name: string; labels: string[]; hidden?: boolean }) =>
   hidden ? null : React.createElement("div", { role: "group", "aria-label": name }, labels.join(" "));
 
+// An item of a drawer, as its name and its value, unless hidden.
+const DrawerItem = ({ name, hidden, children }: { name: string; hidden?: boolean; children?: React.ReactNode }) =>
+  hidden ? null : React.createElement("div", { role: "group", "aria-label": name }, children);
+
+// A date, as the text it was given; the host formats it in the user's locale and time zone.
+const LocaleDate = ({ date }: { date: string }) => React.createElement("time", null, date);
+
+// A badge, as its label, with its tooltip as the title when the tooltip is a text.
+const Badge = ({ label, tooltip }: { label?: React.ReactNode; tooltip?: unknown }) =>
+  React.createElement("span", { title: typeof tooltip === "string" ? tooltip : undefined }, label);
+
+// An item of a menu, as a list item. Like the host's, it calls `onClick` also when disabled: the host keeps a disabled
+// item from being clicked with CSS only.
+const MenuItem = ({
+  onClick,
+  disabled,
+  className,
+  children,
+}: {
+  onClick?: (event: React.MouseEvent) => void;
+  disabled?: boolean;
+  className?: string;
+  children?: React.ReactNode;
+}) => React.createElement("li", { role: "menuitem", "aria-disabled": disabled, className, onClick }, children);
+
+// An icon, as its material name, with its tooltip as the label when the tooltip is a text.
+const Icon = ({ material, tooltip }: { material?: string; tooltip?: unknown }) =>
+  React.createElement("i", { "aria-label": typeof tooltip === "string" ? tooltip : undefined }, material);
+
 export const Renderer = {
   Component: {
+    Badge,
     BadgeBoolean,
+    DrawerItem,
     DrawerItemLabels,
+    Icon,
     KubeObjectAge,
     KubeObjectListLayout,
     LinkToNamespace,
+    LocaleDate,
+    MenuItem,
+    // The host shows a notification and returns its disposer; a test spies on the function it expects.
+    Notifications: {
+      error: (_message: unknown) => () => {},
+    },
     WithTooltip,
   },
   K8sApi: {

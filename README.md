@@ -22,7 +22,8 @@ each of the operator's resources, and a details panel for each:
   The details show the annotations of the written `Secret` or custom target,
   such as the time of the last update, the `ref` of every data source, the
   templates, the databases whose password the operator updates, the rollout
-  targets, the custom target and its last apply, and the conditions.
+  targets, the custom target and its last apply, the conditions, and the
+  last requested and handled refresh.
 - **DB Secrets**: the `Secret` that a `DbSecret` writes, the Vault mount and
   role that issue its credentials, and whether the operator renews their
   lease. The details show the annotations of the `Secret`, with its lease and
@@ -42,15 +43,40 @@ of a secret, never its value.
   >
 </picture>
 
+### Refresh
+
+A `ValsSecret` has a "Refresh" action, as an icon in the toolbar of its
+details and in the menu of its row in the list. It asks vals-operator to read
+the backend again on the next reconcile, without waiting for the TTL and
+without a change of the spec: it sets the annotation
+`vals-operator.digitalis.io/refresh-requested-at` to the current time. The
+`Secret`, or the custom target, is rewritten, and its rollouts run, only when
+the data changed.
+
+The action needs vals-operator v0.14.0 or newer, which records the request it
+handled in `status.lastHandledRefreshAt`, after the backend was read and the
+`Secret` or target written. Until then the refresh is pending: the action is
+disabled, so that a click is one read of the backend, and the details show
+the requested refresh as "Pending". A failed read stays pending and the
+operator retries it. An older operator ignores the annotation, so there the
+action stays disabled after the first click. The same happens with the
+`ValsSecret` CRD of an older release, which cannot store
+`status.lastHandledRefreshAt`: apply the CRD of v0.14.0 together with the
+operator.
+
+The action covers `ValsSecret` only. A `DbSecret` has none: a refresh there
+would issue new credentials and revoke the old lease.
+
 ## Requirements
 
 - Freelens >= 2.0.0
 - Kubernetes >= 1.24
+- vals-operator >= 0.14.0 for the Refresh action
 
 ## Supported APIs
 
 The resources of [vals-operator](https://github.com/digitalis-io/vals-operator)
-v0.12.0:
+v0.14.0:
 
 | API Group      | API Version | Kind         | Scope      |
 | -------------- | ----------- | ------------ | ---------- |

@@ -746,6 +746,24 @@ export async function rowCells(row: Locator): Promise<string[]> {
 }
 
 /**
+ * The value of the item of the open details drawer with the name.
+ */
+function detailsItemValue(frame: Frame, itemName: string): Locator {
+  return frame
+    .locator(".KubeObjectDetails .DrawerItem")
+    .filter({ has: frame.locator(".name").getByText(itemName, { exact: true }) })
+    .locator(".value");
+}
+
+/**
+ * The text of the item of the open details drawer with the name, which the
+ * host updates when the object changes.
+ */
+export async function detailsItemText(frame: Frame, itemName: string): Promise<string> {
+  return ((await detailsItemValue(frame, itemName).textContent()) ?? "").trim();
+}
+
+/**
  * Opens the details of the row's object, whose name is given, and returns the
  * value of the item of the extension's panel with the name, after checking
  * that the extension's error boundary rendered no error page in the drawer.
@@ -754,10 +772,7 @@ export async function openDetails(frame: Frame, row: Locator, objectName: string
   await row.getByText(objectName, { exact: true }).click();
 
   const details = frame.locator(".KubeObjectDetails");
-  const item = details
-    .locator(".DrawerItem")
-    .filter({ has: frame.locator(".name").getByText(itemName, { exact: true }) })
-    .locator(".value");
+  const item = detailsItemValue(frame, itemName);
 
   await item.waitFor(viewTimeout);
 
@@ -769,4 +784,43 @@ export async function openDetails(frame: Frame, row: Locator, objectName: string
   }
 
   return ((await item.textContent()) ?? "").trim();
+}
+
+/**
+ * The item of the extension's menu in the toolbar of the open details drawer
+ * with the material icon, such as `refresh`. The host renders the items of
+ * `kubeObjectMenuItems` there, each as a `.MenuItem` with its icon.
+ */
+export function toolbarMenuItem(frame: Frame, materialIcon: string): Locator {
+  return frame
+    .locator(".KubeObjectDetails .drawer-title .MenuActions.toolbar .MenuItem")
+    .filter({ has: frame.locator(`.Icon [data-icon-name="${materialIcon}"]`) });
+}
+
+/**
+ * Clicks an item of a menu of the host. A DOM `click()`, which the item's
+ * `onClick` takes as a click, and which no tooltip or overlay can intercept.
+ */
+export async function clickMenuItem(item: Locator) {
+  await item.waitFor(viewTimeout);
+  await item.evaluate((element: HTMLElement) => element.click());
+}
+
+/**
+ * The value of an annotation of a test object, read back through the cluster,
+ * or an empty string without it.
+ */
+export function objectAnnotation(resource: string, name: string, annotation: string): string {
+  // JSONPath takes a dot in a key escaped.
+  const key = annotation.replaceAll(".", "\\.");
+
+  return kubectl(
+    "get",
+    resource,
+    name,
+    "--namespace",
+    testNamespace,
+    "--output",
+    `jsonpath={.metadata.annotations.${key}}`,
+  ).trim();
 }

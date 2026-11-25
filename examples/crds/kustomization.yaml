@@ -1,5 +1,5 @@
-# The CRDs of vals-operator v0.12.0, copied from config/crd/bases/ of
-# https://github.com/digitalis-io/vals-operator at the tag v0.12.0, and
+# The CRDs of vals-operator v0.14.0, copied from config/crd/bases/ of
+# https://github.com/digitalis-io/vals-operator at the tag v0.14.0, and
 # formatted with yamlfmt, which leaves their content unchanged.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization

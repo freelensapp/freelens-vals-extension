@@ -6,19 +6,22 @@
 import { Renderer } from "@freelensapp/extensions";
 import { DbSecret } from "./api/db-secret/db-secret-v1beta1";
 import { ValsSecret } from "./api/vals-secret/vals-secret-v1";
-import { withDetailsErrorBoundary, withPageErrorBoundary } from "./components/error-boundary";
+import {
+  withDetailsErrorBoundary,
+  withMenuItemErrorBoundary,
+  withPageErrorBoundary,
+} from "./components/error-boundary";
 import { DbSecretDetails } from "./details/db-secret-details";
 import { ValsSecretDetails } from "./details/vals-secret-details";
 import { ValsIcon } from "./icons";
+import { ValsSecretRefreshMenuItem } from "./menus/vals-secret-refresh-menu-item";
 import { DbSecretsPage } from "./pages/db-secrets-page";
 import { ValsSecretsPage } from "./pages/vals-secrets-page";
 
-// Every page and details panel renders inside an error boundary, so that an error it throws stays in its place: the
-// host has none around the details drawer, and its boundary around the cluster frame would replace the whole cluster
-// view. Each registration field is mapped through its wrapper, so an entry added to it is wrapped too.
-//
-// The extension has no menu items: vals-operator has no action on a `ValsSecret` or a `DbSecret` for one. A field
-// `kubeObjectMenuItems` added later is mapped through `withMenuItemErrorBoundary`.
+// Every page, details panel and menu item renders inside an error boundary, so that an error it throws stays in its
+// place: the host has none around the details drawer or a menu item, and its boundary around the cluster frame would
+// replace the whole cluster view. Each registration field is mapped through its wrapper, so an entry added to it is
+// wrapped too.
 export default class ValsRenderer extends Renderer.LensExtension {
   kubeObjectDetailItems: Renderer.LensExtension["kubeObjectDetailItems"] = [
     Renderer.K8sApi.detailsFor(ValsSecret, {
@@ -30,6 +33,15 @@ export default class ValsRenderer extends Renderer.LensExtension {
       Details: DbSecretDetails,
     }),
   ].map((registration) => withDetailsErrorBoundary(this, registration));
+
+  // Refresh, for a `ValsSecret` only: vals-operator v0.14.0 reads the `refresh-requested-at` annotation of a
+  // `ValsSecret`. A `DbSecret` has no such action, because a refresh there would issue new credentials and revoke the
+  // old lease. The host renders the item in the toolbar of the details panel and in the menu of the list.
+  kubeObjectMenuItems: Renderer.LensExtension["kubeObjectMenuItems"] = [
+    Renderer.K8sApi.menuItemFor(ValsSecret, {
+      MenuItem: ValsSecretRefreshMenuItem,
+    }),
+  ].map((registration) => withMenuItemErrorBoundary(this, registration));
 
   clusterPages: Renderer.LensExtension["clusterPages"] = [
     {

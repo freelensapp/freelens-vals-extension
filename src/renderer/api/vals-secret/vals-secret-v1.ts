@@ -3,7 +3,7 @@ import { Renderer } from "@freelensapp/extensions";
 import type { ValsKubeObjectCRD } from "../types";
 
 // The API of `digitalis.io/v1`, from `apis/digitalis.io/v1/valssecret_types.go` and
-// `config/crd/bases/digitalis.io_valssecrets.yaml` of vals-operator v0.12.0.
+// `config/crd/bases/digitalis.io_valssecrets.yaml` of vals-operator v0.14.0.
 
 /** A secret to read with vals: `DataSource`. */
 export interface DataSource {
@@ -109,7 +109,26 @@ export interface ValsSecretStatus {
   /** Set only with `spec.target`. */
   conditions?: Condition[];
   target?: TargetStatus;
+  /**
+   * The generation of this `ValsSecret` last applied to its `Secret`. When the generation moves past it, the backend is
+   * read again and the `Secret` updated without waiting for the TTL. Zero means not recorded yet: the TTL rule applies.
+   * Not used with `spec.target`. Since vals-operator v0.13.0.
+   */
+  secretGeneration?: number;
+  /**
+   * The value of the `vals-operator.digitalis.io/refresh-requested-at` annotation last handled. While the annotation
+   * holds another value, the next reconcile reads the backend again without waiting for the TTL. It is recorded only
+   * after the backend was read and the `Secret` or target applied, so a failed refresh stays pending and is retried.
+   * Since vals-operator v0.14.0.
+   */
+  lastHandledRefreshAt?: string;
 }
+
+/**
+ * The annotation that requests a refresh: a new value makes vals-operator v0.14.0 or newer read the backend again on
+ * the next reconcile, without waiting for the TTL (`refreshRequestedAtAnnotation` in `controllers/common.go`).
+ */
+export const refreshRequestedAtAnnotation = "vals-operator.digitalis.io/refresh-requested-at";
 
 export class ValsSecret extends Renderer.K8sApi.LensExtensionKubeObject<
   Renderer.K8sApi.KubeObjectMetadata,
@@ -146,6 +165,21 @@ export class ValsSecret extends Renderer.K8sApi.LensExtensionKubeObject<
   /** The number of keys of `spec.data`. */
   static getDataCount(object: ValsSecret): number {
     return Object.keys(object.spec?.data ?? {}).length;
+  }
+
+  /** The value of the `refresh-requested-at` annotation, or `undefined` without it. */
+  static getRefreshRequestedAt(object: ValsSecret): string | undefined {
+    return object.metadata.annotations?.[refreshRequestedAtAnnotation] || undefined;
+  }
+
+  /**
+   * Whether a refresh is requested and not handled yet: the `refresh-requested-at` annotation is set and differs from
+   * `status.lastHandledRefreshAt`, the rule of the operator (`refreshPending` in `controllers/valssecret_controller.go`).
+   */
+  static isRefreshPending(object: ValsSecret): boolean {
+    const requested = ValsSecret.getRefreshRequestedAt(object);
+
+    return requested !== undefined && requested !== object.status?.lastHandledRefreshAt;
   }
 }
 

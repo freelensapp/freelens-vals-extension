@@ -7,20 +7,25 @@
 // up the CRDs and the test objects of examples/test, connects the cluster
 // again, so that the app reads the CRDs anew, and leaves the cluster
 // disconnected; it does not depend on another test file having run. No
-// operator runs, so the objects have no status.
+// operator runs, so the objects have no status, and a requested refresh stays
+// pending.
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   appReady,
+  clickMenuItem,
   connectApp,
+  detailsItemText,
   disconnectKindCluster,
   installExtension,
+  objectAnnotation,
   openDetails,
   openKindCluster,
   openListPage,
   rowCells,
   setUpCluster,
   tearDownCluster,
+  toolbarMenuItem,
 } from "./extension-helpers";
 
 import type { Frame } from "playwright";
@@ -81,6 +86,33 @@ describe.skipIf(!(await appReady({ cluster: true })))("ValsSecret and DbSecret v
     const [row] = await openListPage(frame, "vals-secrets", ["test"]);
 
     expect(await openDetails(frame, row, "test", "Secret")).toBe("test-credentials");
+  });
+
+  it("requests a refresh of a ValsSecret from the toolbar of its details", async () => {
+    const annotation = "vals-operator.digitalis.io/refresh-requested-at";
+    const timeout = { timeout: 60 * 1000, interval: 1000 };
+    const [row] = await openListPage(frame, "vals-secrets", ["test-target"]);
+
+    await openDetails(frame, row, "test-target", "Refresh Requested");
+
+    const refresh = toolbarMenuItem(frame, "refresh");
+    const before = Date.now();
+
+    // Enabled: the test object has no annotation.
+    await refresh.waitFor(timeout);
+    expect(await refresh.getAttribute("class")).not.toMatch(/\bdisabled\b/);
+    await clickMenuItem(refresh);
+
+    // The merge patch sets the annotation to the current time.
+    await expect.poll(() => objectAnnotation("valssecret", "test-target", annotation), timeout).not.toBe("");
+    const requested = objectAnnotation("valssecret", "test-target", annotation);
+    expect(requested).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    expect(Date.parse(requested)).toBeGreaterThanOrEqual(before - 60 * 1000);
+
+    // No operator records it, so the refresh stays pending: the item is
+    // disabled, and the details say so.
+    await expect.poll(() => refresh.getAttribute("class"), timeout).toMatch(/\bdisabled\b/);
+    await expect.poll(() => detailsItemText(frame, "Refresh Requested"), timeout).toMatch(/\bPending$/);
   });
 
   it("lists the DbSecret", async () => {
