@@ -4,6 +4,7 @@ import { Fragment } from "react";
 import { ValsSecret } from "../api/vals-secret/vals-secret-v1";
 import styles from "./details.module.scss";
 import { ObjectAnnotations } from "./object-annotations";
+import { RefreshItems } from "./refresh-items";
 import { RolloutTargets } from "./rollout-targets";
 import { TemplateEditor, Templates } from "./templates";
 
@@ -208,6 +209,7 @@ export const ValsSecretDetails = observer(({ object }: ValsSecretDetailsProps) =
       <DrawerItem name="TTL" hidden={spec?.ttl === undefined}>
         {spec?.ttl}s
       </DrawerItem>
+      <RefreshItems object={object} />
       <DataSources data={spec?.data} />
       <Templates templates={spec?.template} />
       <Databases object={object} databases={spec?.databases} />
